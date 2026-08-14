@@ -53,9 +53,10 @@ services:
       - key: BACKEND_URL
         sync: false
 
-staticSites:
-  # ---------- FRONTEND (React + Vite static) ----------
-  - name: quietspace-frontend
+  # ---------- FRONTEND (React + Vite static site) ----------
+  - type: web
+    name: quietspace-frontend
+    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist

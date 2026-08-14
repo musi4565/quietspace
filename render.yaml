@@ -5,7 +5,7 @@ databases:
     user: quietspace
 
 services:
-  # ---------- BACKEND (Django + DRF) ----------
+  # ---------- BACKEND (Django + DRF + Telegram bot thread) ----------
   - type: web
     name: quietspace-backend
     runtime: python
@@ -28,6 +28,8 @@ services:
         value: "true"
       - key: GEMINI_MODEL
         value: "gemini-3-flash-preview"
+      - key: BOT_AUTOSTART
+        value: "true"
       - key: GEMINI_API_KEY
         sync: false
       - key: TELEGRAM_BOT_TOKEN
@@ -37,20 +39,6 @@ services:
       - key: AI_BASE_URL
         sync: false
       - key: AI_MODEL
-        sync: false
-
-  # ---------- TELEGRAM BOT (worker) ----------
-  - type: worker
-    name: quietspace-bot
-    runtime: python
-    rootDir: bot
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
-    envVars:
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: BACKEND_URL
         sync: false
 
   # ---------- FRONTEND (React + Vite static site) ----------

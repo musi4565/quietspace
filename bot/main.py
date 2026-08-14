@@ -18,17 +18,30 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
 )
 
-from api import (
-    ai_chat,
-    confirm_link,
-    get_districts,
-    get_favorites,
-    get_place,
-    nearby_places,
-    search_places,
-    toggle_notifications,
-)
-from config import BOT_TOKEN
+try:
+    from bot.api import (
+        ai_chat,
+        confirm_link,
+        get_districts,
+        get_favorites,
+        get_place,
+        nearby_places,
+        search_places,
+        toggle_notifications,
+    )
+    from bot.config import BOT_TOKEN
+except ImportError:  # standalone rejim (python main.py)
+    from api import (
+        ai_chat,
+        confirm_link,
+        get_districts,
+        get_favorites,
+        get_place,
+        nearby_places,
+        search_places,
+        toggle_notifications,
+    )
+    from config import BOT_TOKEN
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

@@ -1,6 +1,9 @@
 import httpx
 
-from config import BACKEND_URL
+try:
+    from bot.config import BACKEND_URL
+except ImportError:  # standalone rejim (python main.py)
+    from config import BACKEND_URL
 
 
 async def _get(path: str, params: dict = None) -> dict:

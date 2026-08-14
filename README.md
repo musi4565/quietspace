@@ -6,8 +6,10 @@ Shahardagi jimjit, Wi-Fi va rozetkasi bor qulay joylarni topish platformasi — 
 
 - **Backend** — Django 5 + Django REST Framework + PostgreSQL (JWT auth, AI matching, Telegram linking)
 - **Frontend** — React 18 + Vite + React Router + Axios + Leaflet (xarita)
-- **Bot** — Telegram bot (Aiogram 3) — qidiruv, AI topish, hisobni bog'lash
-- **AI Assistant** — OpenAI-compatible API (`AI_API_KEY` bo'lmasa offline rule-based rejim ishlaydi)
+- **Bot** — Telegram bot (Aiogram 3) — filter qidiruv, AI topish, yaqin joylar, sevimlilar, bildirishnomalar
+- **AI Assistant** — Gemini (GEMINI_API_KEY, model gemini-3-flash-preview) yoki OpenAI-compatible API (AI_API_KEY);
+  kalit bo'lmasa offline rule-based rejim ishlaydi. AI faqat talabni parse qiladi, matching balli backend hisoblaydi:
+  shovqin 30 + Wi-Fi 25 + rozetka 20 + narx 15 + masofa 10 = 100 ball
 
 ## Loyiha tuzilishi
 
@@ -59,13 +61,20 @@ quietspace/
    python main.py                # .env da TELEGRAM_BOT_TOKEN bo'lishi kerak
    ```
 
+## Sozlamalarni tekshirish
+
+```bash
+cd backend
+python manage.py check_config   # env variable holati (qiymatlar ko'rsatilmaydi)
+```
+
 ## Asosiy funksiyalar
 
-- 🔎 Joylarni qidirish/filter — tuman, shovqin, narx, Wi-Fi tezligi, bo'sh joylar
-- 🗺️ Xarita — barcha joylar Leaflet xaritasida
-- 🤖 AI Assistant — "Chilonzorda tinch, rozetkasi bor joy qani?" → eng mos joylar + moslik %
+- 🔎 Joylarni qidirish/filter — tuman, shovqin, narx, Wi-Fi tezligi, rozetka, bo'sh joylar
+- 🗺️ Xarita — Leaflet xaritasi + yaqin joylar (lat/lng, masofa km)
+- 🤖 AI Assistant — "Chilonzorda tinch, rozetkasi bor joy qani?" → Gemini parse → matching → eng mos joylar + moslik %
 - ❤️ Sevimlilar, ⭐ sharhlar va reytinglar
-- 🔗 Telegram bilan bog'lanish — sayt hisobi ↔ bot chat (`/link <kod>`)
+- 🔗 Telegram bilan bog'lanish — sayt hisobi ↔ bot chat (`/link <kod>`); botda sevimlilar va bildirishnoma yoqish
 - 📊 Admin panel — `/api/panel/` dashboard, joylarni tasdiqlash
 
 ## API qisqacha

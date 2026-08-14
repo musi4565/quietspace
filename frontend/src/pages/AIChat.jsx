@@ -25,7 +25,7 @@ export default function AIChat() {
   useEffect(() => {
     api
       .get("/ai/status/")
-      .then(({ data }) => setSource(data.source))
+      .then(({ data }) => setSource({ name: data.provider, model: data.model }))
       .catch(() => {});
   }, []);
 
@@ -54,9 +54,11 @@ export default function AIChat() {
     <div className="page">
       <h1>🤖 AI Assistant</h1>
       <p className="muted">
-        {source === "ai"
-          ? "OpenAI bilan ishlayapti — eng mos joylarni topadi."
-          : "Hozircha mahalliy (offline) rejim — AI kalitsiz ham ishlaydi, talablarni tahlil qiladi va eng mos joylarni topadi."}
+        {source?.name === "gemini"
+          ? `Gemini (${source.model}) bilan ishlayapti — talablarni tahlil qiladi va eng mos joylarni topadi.`
+          : source?.name === "openai"
+            ? `AI (${source.model}) bilan ishlayapti — eng mos joylarni topadi.`
+            : "Hozircha mahalliy (offline) rejim — AI kalitsiz ham ishlaydi, talablarni tahlil qiladi va eng mos joylarni topadi."}
       </p>
 
       <div className="chat">

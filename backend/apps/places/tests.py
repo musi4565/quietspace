@@ -209,3 +209,28 @@ class PlacesAPITests(APITestCase):
         resp = self.client.get("/api/places/districts/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIn("Chilonzor", [d["name"] for d in resp.data])
+
+    def test_nearby_orders_by_distance(self):
+        self.approved.latitude = 41.32
+        self.approved.longitude = 69.28
+        self.approved.save()
+        far = Place.objects.create(
+            name="Far Place",
+            district=self.district,
+            address="Boshqa joy",
+            latitude=41.5,
+            longitude=69.5,
+            price_per_hour=10000,
+            wifi_speed=40,
+            socket_count=2,
+            noise_level=NoiseLevel.AVERAGE,
+            capacity=20,
+            available_slots=5,
+            status=PlaceStatus.APPROVED,
+        )
+        resp = self.client.get(f"/api/places/?lat=41.32&lng=69.28&page_size=10")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        results = resp.data["results"]
+        self.assertGreaterEqual(len(results), 2)
+        self.assertEqual(results[0]["id"], self.approved.id)
+        self.assertIsNotNone(results[0]["distance_km"])

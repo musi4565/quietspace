@@ -1,4 +1,5 @@
 from django.db.models import Avg, Count
+from django.db.models.expressions import RawSQL
 from rest_framework import filters, generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -65,11 +66,33 @@ class PlaceListView(generics.ListAPIView):
         if available in ("true", "1"):
             qs = qs.filter(available_slots__gt=0)
 
+        lat = self.request.query_params.get("lat")
+        lng = self.request.query_params.get("lng")
+        try:
+            lat, lng = float(lat), float(lng)
+        except (TypeError, ValueError):
+            lat, lng = None, None
+
         ordering = self.request.query_params.get("ordering")
         if ordering == "rating":
             qs = qs.order_by("-avg_rating")
         elif ordering == "price":
             qs = qs.order_by("price_per_hour")
+        elif lat is not None and lng is not None:
+            distance_sql = RawSQL(
+                "6371.0 * 2 * asin(sqrt("
+                "power(sin((radians(%s) - radians(latitude)) / 2), 2) + "
+                "cos(radians(%s)) * cos(radians(latitude)) * "
+                "power(sin((radians(%s) - radians(longitude)) / 2), 2)))",
+                params=[lat, lat, lng],
+            )
+            qs = qs.annotate(distance_km=distance_sql).order_by("distance_km")
+            max_km = self.request.query_params.get("max_distance_km")
+            if max_km:
+                try:
+                    qs = qs.filter(distance_km__lte=float(max_km))
+                except ValueError:
+                    pass
         else:
             qs = qs.order_by("-is_featured", "-created_at")
 

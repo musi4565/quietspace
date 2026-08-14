@@ -64,7 +64,13 @@ class ChatView(APIView):
 
         results = MatchingService.match(req, limit=10)
 
-        source = "ai" if parser.__class__.__name__ == "OpenAICompatParser" else "rule-based"
+        parser_class = parser.__class__.__name__
+        if parser_class == "GeminiParser":
+            source = "gemini"
+        elif parser_class == "OpenAICompatParser":
+            source = "ai"
+        else:
+            source = "rule-based"
 
         serialized = []
         for item in results:
@@ -88,16 +94,26 @@ class AIStatusView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
+        active_key = settings.GEMINI_API_KEY or settings.AI_API_KEY
+        active_provider = (
+            "gemini" if settings.GEMINI_API_KEY else settings.AI_PROVIDER if settings.AI_API_KEY else None
+        )
+        active_model = (
+            settings.GEMINI_MODEL if settings.GEMINI_API_KEY else settings.AI_MODEL if settings.AI_API_KEY else None
+        )
         return Response(
             {
                 "success": True,
-                "ai_configured": bool(settings.AI_API_KEY),
-                "provider": settings.AI_PROVIDER,
-                "model": settings.AI_MODEL,
+                "ai_configured": bool(active_key),
+                "provider": active_provider,
+                "model": active_model,
+                "gemini_configured": bool(settings.GEMINI_API_KEY),
+                "openai_configured": bool(settings.AI_API_KEY),
                 "message": (
-                    "AI API kaliti sozlangan" if settings.AI_API_KEY
+                    f"{active_provider} modeli ({active_model}) ishga tushdi."
+                    if active_key
                     else "AI API kaliti sozlanmagan - kalit so'z (rule-based) parser ishlaydi. "
-                         "Ishlash uchun .env faylida AI_API_KEY ni o'rnating."
+                    "Ishlash uchun .env faylida AI_API_KEY yoki GEMINI_API_KEY ni o'rnating."
                 ),
             }
         )

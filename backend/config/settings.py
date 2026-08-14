@@ -57,6 +57,7 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
+    "apps.core",
     "apps.accounts",
     "apps.places",
     "apps.favorites",
@@ -190,5 +191,9 @@ AI_API_KEY = env_str("AI_API_KEY")
 AI_PROVIDER = env_str("AI_PROVIDER", "openai")
 AI_BASE_URL = env_str("AI_BASE_URL", "https://api.openai.com/v1")
 AI_MODEL = env_str("AI_MODEL", "gpt-4o-mini")
+
+# Gemini (Google) - GEMINI_API_KEY o'rnatilgan bo'lsa OpenAI o'rniga ishlaydi
+GEMINI_API_KEY = env_str("GEMINI_API_KEY")
+GEMINI_MODEL = env_str("GEMINI_MODEL", "gemini-2.5-flash")
 
 FRONTEND_URL = env_str("FRONTEND_URL", "http://localhost:5173")

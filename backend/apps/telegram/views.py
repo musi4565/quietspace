@@ -95,3 +95,66 @@ class MyTelegramProfileView(APIView):
         if not deleted:
             return Response({"success": False, "message": "Bog'lanish topilmadi"}, status=status.HTTP_404_NOT_FOUND)
         return Response({"success": True, "message": "Bog'lanish bekor qilindi"})
+
+
+class BotFavoritesView(APIView):
+    """Bot uchun: bog'langan chat_id ning sevimli joylari (demo)."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        chat_id = request.query_params.get("chat_id", "").strip()
+        if not chat_id:
+            return Response({"success": False, "message": "chat_id kerak"}, status=status.HTTP_400_BAD_REQUEST)
+        profile = TelegramProfile.objects.filter(chat_id=str(chat_id)).first()
+        if not profile:
+            return Response(
+                {"success": False, "message": "Hisob Telegram bilan bog'lanmagan. Saytda bog'lang yoki /link <kod> qiling."}
+            )
+        from apps.favorites.models import Favorite
+        from apps.places.models import PlaceStatus
+        from apps.places.serializers import PlaceListSerializer
+
+        favs = (
+            Favorite.objects.filter(user=profile.user, place__status=PlaceStatus.APPROVED)
+            .select_related("place", "place__district")
+            .prefetch_related("place__images")
+        )
+        places = [f.place for f in favs]
+        return Response(
+            {
+                "success": True,
+                "user_email": profile.user.email,
+                "count": len(places),
+                "places": PlaceListSerializer(places, many=True, context={"request": request}).data,
+            }
+        )
+
+
+class BotNotificationsToggleView(APIView):
+    """Bot uchun: bildirishnomalarni yoqish/o'chirish."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        chat_id = request.data.get("chat_id", "").strip()
+        if not chat_id:
+            return Response({"success": False, "message": "chat_id kerak"}, status=status.HTTP_400_BAD_REQUEST)
+        profile = TelegramProfile.objects.filter(chat_id=str(chat_id)).first()
+        if not profile:
+            return Response(
+                {"success": False, "message": "Hisob Telegram bilan bog'lanmagan. /link <kod> buyrug'ini ishlating."}
+            )
+        profile.notifications_enabled = not profile.notifications_enabled
+        profile.save(update_fields=["notifications_enabled"])
+        return Response(
+            {
+                "success": True,
+                "notifications_enabled": profile.notifications_enabled,
+                "message": (
+                    "🔔 Bildirishnomalar yoqildi"
+                    if profile.notifications_enabled
+                    else "🔕 Bildirishnomalar o'chirildi"
+                ),
+            }
+        )

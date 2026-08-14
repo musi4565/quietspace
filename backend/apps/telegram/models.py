@@ -41,6 +41,7 @@ class TelegramProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="telegram_profile")
     chat_id = models.CharField(max_length=100, unique=True, db_index=True)
     username = models.CharField(max_length=100, blank=True)
+    notifications_enabled = models.BooleanField(default=True)
     linked_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

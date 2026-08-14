@@ -16,4 +16,4 @@ class LinkConfirmSerializer(serializers.Serializer):
 class TelegramProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = TelegramProfile
-        fields = ["id", "chat_id", "username", "linked_at"]
+        fields = ["id", "chat_id", "username", "notifications_enabled", "linked_at"]

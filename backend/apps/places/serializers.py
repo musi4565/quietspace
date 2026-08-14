@@ -22,14 +22,21 @@ class PlaceListSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
     avg_rating = serializers.SerializerMethodField()
     noise_display = serializers.CharField(source="get_noise_level_display", read_only=True)
+    distance_km = serializers.SerializerMethodField()
 
     class Meta:
         model = Place
         fields = [
             "id", "name", "district_name", "address", "price_per_hour", "wifi_speed",
             "socket_count", "noise_level", "noise_display", "capacity", "available_slots",
-            "avg_rating", "image", "latitude", "longitude", "status",
+            "avg_rating", "image", "latitude", "longitude", "status", "distance_km",
         ]
+
+    def get_distance_km(self, obj):
+        value = getattr(obj, "distance_km", None)
+        if value is None:
+            return None
+        return round(float(value), 1)
 
     def get_image(self, obj):
         img = obj.images.filter(is_primary=True).first() or obj.images.first()

@@ -110,8 +110,55 @@ SYSTEM_PROMPT = (
     "(VERY_QUIET|QUIET|AVERAGE|NOISY yoki null), wifi_min (son yoki null), "
     "sockets (true/false/null), max_price (so'mda son yoki null), "
     "duration_hours (soat son yoki null), free_now (true/false/null). "
-    "Noma'lum bo'lsa null qo'ying. Narsalarni o'ylab topmang."
+    "Noma'lum bo'lsa null qo'ying. Narsalarni o'ylab topmang. "
+    "Narx misollari: 'bepul' -> max_price: 0; '50 mingdan arzon' -> max_price: 50000; "
+    "'100 minggacha' -> max_price: 100000. "
+    "Wi-Fi misollari: 'wi-fi yaxshi' -> wifi_min: 20; 'wi-fi tez' -> wifi_min: 50. "
+    "Tuman slug misollari: 'chilonzor', 'yunusobod', 'shayxontohur' (slash yoki nomi bo'lsa slug'ga aylantiring).\n"
+    "To'liq misol: 'Menga Chilonzorda 50 mingdan arzon, tinch va Wi-Fi yaxshi joy kerak' "
+    "-> {\"district\": \"chilonzor\", \"noise\": \"QUIET\", \"wifi_min\": 20, "
+    "\"sockets\": null, \"max_price\": 50000, \"duration_hours\": null, \"free_now\": null}"
 )
+
+
+def normalize_requirements(data: dict) -> PlaceRequirements:
+    """LLM dan kelgan JSON'ni PlaceRequirements ga o'tkazadi. Maydonlarni o'ylab topmaydi -
+    faqat DB dagi tumanlar va qoidalarga mos bo'lganlarini qabul qiladi."""
+    req = PlaceRequirements()
+
+    district = data.get("district")
+    if district:
+        district_obj = (
+            District.objects.filter(slug__iexact=str(district).lower()).first()
+            or District.objects.filter(name__iexact=str(district)).first()
+        )
+        req.district = district_obj.slug if district_obj else None
+
+    noise = str(data.get("noise") or "").upper()
+    if noise in NoiseLevel.values:
+        req.noise = noise
+
+    wifi = data.get("wifi_min")
+    if wifi is not None and int(wifi) > 0:
+        req.wifi_min = int(wifi)
+
+    sockets = data.get("sockets")
+    if sockets is not None:
+        req.sockets = bool(sockets)
+
+    price = data.get("max_price")
+    if price is not None and int(price) >= 0:
+        req.max_price = int(price)
+
+    duration = data.get("duration_hours")
+    if duration is not None and int(duration) > 0:
+        req.duration_hours = int(duration)
+
+    free = data.get("free_now")
+    if free is not None:
+        req.free_now = bool(free)
+
+    return req
 
 
 class OpenAICompatParser(BaseParser):
@@ -126,7 +173,7 @@ class OpenAICompatParser(BaseParser):
     def parse(self, text: str) -> PlaceRequirements:
         try:
             result = self._call_api(text)
-            req = self._normalize(result)
+            req = normalize_requirements(result)
             req.query_text = text
             return req
         except Exception as exc:
@@ -155,46 +202,94 @@ class OpenAICompatParser(BaseParser):
             content = content.rsplit("```", 1)[0]
         return json.loads(content)
 
-    def _normalize(self, data: dict) -> PlaceRequirements:
-        req = PlaceRequirements()
 
-        district = data.get("district")
-        if district:
-            district_obj = (
-                District.objects.filter(slug__iexact=str(district).lower()).first()
-                or District.objects.filter(name__iexact=str(district)).first()
-            )
-            req.district = district_obj.slug if district_obj else None
+class GeminiParser(BaseParser):
+    """Google Gemini (generativelanguage API) orqali parsing. JSON mode ishlatadi."""
 
-        noise = str(data.get("noise") or "").upper()
-        if noise in NoiseLevel.values:
-            req.noise = noise
+    API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-        wifi = data.get("wifi_min")
-        if wifi is not None and int(wifi) > 0:
-            req.wifi_min = int(wifi)
+    def __init__(self):
+        self.api_key = settings.GEMINI_API_KEY
+        self.model = settings.GEMINI_MODEL
+        self._fallback = RuleBasedParser()
 
-        sockets = data.get("sockets")
-        if sockets is not None:
-            req.sockets = bool(sockets)
+    def parse(self, text: str) -> PlaceRequirements:
+        try:
+            result = self._call_api(text)
+            req = normalize_requirements(result)
+            req.query_text = text
+            return req
+        except Exception as exc:
+            logger.warning("Gemini parser xatosi, rule-based ga o'tilmoqda: %s", exc)
+            return self._fallback.parse(text)
 
-        price = data.get("max_price")
-        if price is not None and int(price) >= 0:
-            req.max_price = int(price)
-
-        duration = data.get("duration_hours")
-        if duration is not None and int(duration) > 0:
-            req.duration_hours = int(duration)
-
-        free = data.get("free_now")
-        if free is not None:
-            req.free_now = bool(free)
-
-        return req
+    def _call_api(self, text: str) -> dict:
+        response = httpx.post(
+            self.API_URL.format(model=self.model),
+            params={"key": self.api_key},
+            headers={"Content-Type": "application/json"},
+            json={
+                "contents": [{"parts": [{"text": text}]}],
+                "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        content = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return json.loads(content.strip())
 
 
 def get_parser() -> BaseParser:
-    """Konfiguratsiyaga qarab parser tanlaydi. AI kalit bo'lmasa rule-based ishlaydi."""
+    """Konfiguratsiyaga qarab parser tanlaydi: Gemini > OpenAI > rule-based."""
+    if settings.GEMINI_API_KEY:
+        return GeminiParser()
+    if settings.AI_API_KEY:
+        return OpenAICompatParser()
+    return RuleBasedParser()
+
+
+class GeminiParser(BaseParser):
+    """Google Gemini (generativelanguage API) orqali parsing. JSON mode ishlatadi."""
+
+    API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+    def __init__(self):
+        self.api_key = settings.GEMINI_API_KEY
+        self.model = settings.GEMINI_MODEL
+        self._fallback = RuleBasedParser()
+
+    def parse(self, text: str) -> PlaceRequirements:
+        try:
+            result = self._call_api(text)
+            req = normalize_requirements(result)
+            req.query_text = text
+            return req
+        except Exception as exc:
+            logger.warning("Gemini parser xatosi, rule-based ga o'tilmoqda: %s", exc)
+            return self._fallback.parse(text)
+
+    def _call_api(self, text: str) -> dict:
+        response = httpx.post(
+            self.API_URL.format(model=self.model),
+            params={"key": self.api_key},
+            headers={"Content-Type": "application/json"},
+            json={
+                "contents": [{"parts": [{"text": text}]}],
+                "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        content = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return json.loads(content.strip())
+
+
+def get_parser() -> BaseParser:
+    """Konfiguratsiyaga qarab parser tanlaydi: Gemini > OpenAI > rule-based."""
+    if settings.GEMINI_API_KEY:
+        return GeminiParser()
     if settings.AI_API_KEY:
         return OpenAICompatParser()
     return RuleBasedParser()

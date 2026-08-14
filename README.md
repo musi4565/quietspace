@@ -1,64 +1,97 @@
-# QuietSpace
+# QuietSpace Tashkent 🌿
 
-QuietSpace - tinch joylar va xizmatlar topishga yordam beruvchi platforma. (To'liq tavsif loyiha talablariga qarab keyinroq kengaytiriladi.)
+Shahardagi jimjit, Wi-Fi va rozetkasi bor qulay joylarni topish platformasi — **Hackathon demo**.
+
+## Texnologiyalar
+
+- **Backend** — Django 5 + Django REST Framework + PostgreSQL (JWT auth, AI matching, Telegram linking)
+- **Frontend** — React 18 + Vite + React Router + Axios + Leaflet (xarita)
+- **Bot** — Telegram bot (Aiogram 3) — qidiruv, AI topish, hisobni bog'lash
+- **AI Assistant** — OpenAI-compatible API (`AI_API_KEY` bo'lmasa offline rule-based rejim ishlaydi)
 
 ## Loyiha tuzilishi
 
 ```
 quietspace/
-    frontend/     # Frontend (kelajakda)
-    backend/      # Backend (kelajakda)
-    bot/          # Telegram bot (kelajakda)
+    backend/      # Django REST API (port 8000)
+    frontend/     # React + Vite (port 5173)
+    bot/          # Telegram bot (Aiogram 3)
     .env          # Maxfiy sozlamalar (GitHub'ga chiqmaydi)
-    .env.example  # Sozlamalar namunasi (placeholder qiymatlar)
-    .gitignore
-    README.md
+    .env.example  # Sozlamalar namunasi
 ```
 
 ## O'rnatish
 
-1. Repositoriyani klonlash:
+1. Repositoriyani klonlash va virtual environment:
+
    ```bash
    git clone https://github.com/musi4565/quietspace.git
    cd quietspace
-   ```
-
-2. Virtual environment yaratish (Python loyihasi uchun):
-   ```bash
    python -m venv .venv
+   .venv\Scripts\activate        # Windows
+   source .venv/bin/activate     # Linux/Mac
    ```
 
-3. Bog'liqliklarni o'rnatish (texnologiyaga qarab keyinroq to'ldiriladi).
+2. Backend:
 
-## .env sozlash
+   ```bash
+   cp .env.example .env          # so'ng haqiqiy qiymatlarni kiriting
+   pip install -r backend/requirements.txt
+   cd backend
+   python manage.py migrate
+   python manage.py seed_places  # 12 demo joy
+   python manage.py runserver 127.0.0.1:8000
+   ```
+
+3. Frontend:
+
+   ```bash
+   cd frontend
+   npm install
+   npm run dev                   # http://localhost:5173
+   ```
+
+4. Telegram bot:
+
+   ```bash
+   cd bot
+   pip install -r bot/requirements.txt
+   python main.py                # .env da TELEGRAM_BOT_TOKEN bo'lishi kerak
+   ```
+
+## Asosiy funksiyalar
+
+- 🔎 Joylarni qidirish/filter — tuman, shovqin, narx, Wi-Fi tezligi, bo'sh joylar
+- 🗺️ Xarita — barcha joylar Leaflet xaritasida
+- 🤖 AI Assistant — "Chilonzorda tinch, rozetkasi bor joy qani?" → eng mos joylar + moslik %
+- ❤️ Sevimlilar, ⭐ sharhlar va reytinglar
+- 🔗 Telegram bilan bog'lanish — sayt hisobi ↔ bot chat (`/link <kod>`)
+- 📊 Admin panel — `/api/panel/` dashboard, joylarni tasdiqlash
+
+## API qisqacha
+
+| Endpoint | Tavsif |
+|---|---|
+| `POST /api/auth/register/`, `login/` | Ro'yxatdan o'tish / kirish (JWT) |
+| `GET /api/places/` | Joylar (search, district, noise_level, price, wifi, available) |
+| `GET /api/places/<id>/` | Joy detali |
+| `POST /api/ai/chat/` | AI talab → mos joylar + match % |
+| `POST /api/telegram/link/confirm/` | Bot kod orqali hisobni bog'laydi |
+| `GET /api/panel/dashboard/` | Admin statistikasi |
+
+## Demo akkauntlar
+
+- Admin: `admin@quietspace.uz` / `2thqdj0rzxn5vb`
+- Owner: `owner@quietspace.uz` / `ownerpass123`
+- User: `test@test.uz` / `StrongPass123`
+
+## Testlar
 
 ```bash
-cp .env.example .env
+cd backend
+python manage.py test      # 71 test
 ```
-
-So'ng `.env` faylini ochib, haqiqiy qiymatlarni kiriting (SECRET_KEY, DATABASE_*, TELEGRAM_BOT_TOKEN, AI_API_KEY, JWT_SECRET).
-
-**MUHIM:** `.env` fayli hech qachon GitHub'ga push qilinmasligi kerak - u `.gitignore` da allaqachon qo'shilgan.
-
-## Ishga tushirish
-
-(Texnologiya stack aniqlangandan keyin to'ldiriladi.)
 
 ## Git workflow
 
-Har bir tugallangan o'zgarishdan keyin:
-
-```bash
-git status          # o'zgarishlarni tekshirish
-git diff --cached   # staged fayllarni tekshirish (secret scan)
-git add <fayllar>   # faqat kerakli fayllarni stage qilish
-git commit -m "feat: ..."  # mazmunli commit xabari
-git push            # GitHub'ga push
-```
-
-Qoidalar:
-
-- Commitdan oldin **har doim** secret scan qilinadi (.env, token, password, key).
-- `git add .` ko'r-ko'rona ishlatilmaydi.
-- Test muvaffaqiyatsiz bo'lsa - commit/push qilinmaydi.
-- Git tarix qayta yozilmaydi, force push ishlatilmaydi.
+Har bir tugallangan o'zgarishdan keyin: `git status` → secret scan (`git diff --cached`) → commit → push. `.env` hech qachon push qilinmaydi.

@@ -1,0 +1,64 @@
+databases:
+  - name: quietspace-db
+    plan: free
+    databaseName: quietspace
+    user: quietspace
+
+services:
+  # ---------- BACKEND (Django + DRF) ----------
+  - type: web
+    name: quietspace-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
+    envVars:
+      - key: DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: quietspace-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: "127.0.0.1,localhost,.onrender.com"
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: "true"
+      - key: GEMINI_MODEL
+        value: "gemini-3-flash-preview"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_BASE_URL
+        sync: false
+      - key: AI_MODEL
+        sync: false
+
+  # ---------- TELEGRAM BOT (worker) ----------
+  - type: worker
+    name: quietspace-bot
+    runtime: python
+    rootDir: bot
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: BACKEND_URL
+        sync: false
+
+  # ---------- FRONTEND (React + Vite static) ----------
+  - type: static
+    name: quietspace-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    publishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false

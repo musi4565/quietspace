@@ -37,7 +37,7 @@ else:
 
 JWT_SECRET = env_str("JWT_SECRET") or SECRET_KEY
 
-ALLOWED_HOSTS = [h.strip() for h in env_str("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
+ALLOWED_HOSTS = [h.strip() for h in env_str("ALLOWED_HOSTS", "127.0.0.1,localhost,.onrender.com").split(",") if h.strip()]
 
 # ---------------------------------------------------------------------------
 # APPLICATIONS
@@ -105,8 +105,21 @@ ASGI_APPLICATION = "config.asgi.application"
 # ---------------------------------------------------------------------------
 # DATABASE (PostgreSQL - yagona database)
 # ---------------------------------------------------------------------------
-DATABASES = {
-    "default": {
+def _database_config():
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        from urllib.parse import urlparse
+
+        parsed = urlparse(database_url)
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": parsed.path.lstrip("/"),
+            "USER": parsed.username or "",
+            "PASSWORD": parsed.password or "",
+            "HOST": parsed.hostname or "127.0.0.1",
+            "PORT": parsed.port or "5432",
+        }
+    return {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": env_str("DATABASE_NAME", "quietspace"),
         "USER": env_str("DATABASE_USER", "quietspace"),
@@ -114,7 +127,9 @@ DATABASES = {
         "HOST": env_str("DATABASE_HOST", "127.0.0.1"),
         "PORT": env_str("DATABASE_PORT", "5432"),
     }
-}
+
+
+DATABASES = {"default": _database_config()}
 
 # ---------------------------------------------------------------------------
 # AUTHENTICATION
@@ -157,12 +172,13 @@ SIMPLE_JWT = {
 # ---------------------------------------------------------------------------
 # CORS
 # ---------------------------------------------------------------------------
+CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_ORIGINS", False)
 CORS_ALLOWED_ORIGINS = [
     o.strip()
     for o in env_str("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
     if o.strip()
 ]
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = env_bool("CORS_ALLOW_CREDENTIALS", not CORS_ALLOW_ALL_ORIGINS)
 
 # ---------------------------------------------------------------------------
 # FILES (media)

@@ -1,7 +1,9 @@
 import axios from "axios";
 
+const BASE = import.meta.env.VITE_API_BASE_URL || "/api";
+
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: BASE,
 });
 
 api.interceptors.request.use((config) => {
@@ -19,7 +21,7 @@ api.interceptors.response.use(
       const refresh = localStorage.getItem("qs_refresh");
       if (refresh) {
         try {
-          const { data } = await axios.post("/api/auth/refresh/", { refresh });
+          const { data } = await axios.post(`${BASE}/auth/refresh/`, { refresh });
           localStorage.setItem("qs_access", data.access);
           original.headers.Authorization = `Bearer ${data.access}`;
           return api(original);

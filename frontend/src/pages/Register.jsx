@@ -6,7 +6,7 @@ import { errorMessage } from "../api";
 export default function Register() {
   const { register, login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ full_name: "", email: "", password: "" });
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", password_confirm: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -51,6 +51,15 @@ export default function Register() {
           minLength={8}
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
+          required
+        />
+        <input
+          className="input"
+          type="password"
+          placeholder="Parolni tasdiqlash"
+          minLength={8}
+          value={form.password_confirm}
+          onChange={(e) => setForm({ ...form, password_confirm: e.target.value })}
           required
         />
         {error && <p className="error-text">{error}</p>}

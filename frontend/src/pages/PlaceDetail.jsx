@@ -126,6 +126,12 @@ export default function PlaceDetail() {
               </span>
               <span className="stat-label">O'rindiq {place.capacity} ta</span>
             </div>
+            {place.open_time && (
+              <div className="stat">
+                <span className="stat-value">🕐 {place.open_time.slice(0, 5)}–{place.close_time.slice(0, 5)}</span>
+                <span className="stat-label">Ish vaqti</span>
+              </div>
+            )}
           </div>
 
           {place.description && <p className="desc">{place.description}</p>}

@@ -1,5 +1,4 @@
 import io
-import secrets  # noqa: F401
 
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
@@ -7,6 +6,7 @@ from PIL import Image, ImageDraw
 
 from apps.accounts.models import Role, User
 from apps.places.models import District, NoiseLevel, Place, PlaceImage, PlaceStatus
+from apps.reviews.models import Review
 
 SEED_PLACES = [
     {
@@ -16,17 +16,19 @@ SEED_PLACES = [
         "lat": 41.2744, "lon": 69.2160,
         "price": 30000, "wifi": 85, "sockets": 8, "noise": "QUIET",
         "capacity": 30, "slots": 12,
+        "open_time": "08:00", "close_time": "23:00",
         "description": "Yashil maydon yaqinidagi sokin kofexona. Katta stollar, yaxshi yorug'lik va barqaror internet. Ish uchun juda mos.",
         "featured": True,
     },
     {
-        "name": "WorkHub Tashkent",
+        "name": "WorkHub",
         "district": "Yunusobod",
         "address": "Amir Temur ko'chasi 107B",
         "lat": 41.3240, "lon": 69.2690,
         "price": 45000, "wifi": 100, "sockets": 25, "noise": "QUIET",
         "capacity": 80, "slots": 20,
-        "description": "Professional coworking: alohida xonalar, printer, qahva mashinasi, 24/7 kirish.",
+        "open_time": "08:00", "close_time": "22:00",
+        "description": "Professional coworking markaz: alohida ish xonalari, printer, qahva mashinasi va tez internet. Uzoq ish sessiyalari uchun qulay.",
         "featured": True,
     },
     {
@@ -36,8 +38,20 @@ SEED_PLACES = [
         "lat": 41.3370, "lon": 69.3050,
         "price": 0, "wifi": 40, "sockets": 4, "noise": "VERY_QUIET",
         "capacity": 50, "slots": 8,
+        "open_time": "09:00", "close_time": "20:00",
         "description": "Shahar kutubxonasi — mutlaqo tinch, bepul. Rozetkalar cheklangan, shuning uchun erta kelish tavsiya etiladi.",
         "featured": False,
+    },
+    {
+        "name": "Green Coworking",
+        "district": "Yakkasaroy",
+        "address": "Kichik Beshyagach ko'chasi 12",
+        "lat": 41.2940, "lon": 69.2730,
+        "price": 40000, "wifi": 95, "sockets": 18, "noise": "QUIET",
+        "capacity": 60, "slots": 16,
+        "open_time": "08:30", "close_time": "21:00",
+        "description": "Bog'li hududdagi zamonaviy coworking: keng terassa, barqaror internet va shinam kabinetlar. Uzoq ish kuni uchun hamma sharoit bor.",
+        "featured": True,
     },
     {
         "name": "Green Garden Cafe",
@@ -131,6 +145,30 @@ SEED_PLACES = [
     },
 ]
 
+# 4 asosiy demo joy uchun demo sharhlar (reyting: user, rating, text)
+DEMO_REVIEWS = {
+    "Quiet Coffee": [
+        ("test@test.uz", 5, "Eng sevimli ish joyim. Wi-Fi barqaror, choy qimmat emas, o'rindiqlar qulay."),
+        ("owner@quietspace.uz", 5, "Kun bo'yi ishladim — tinch, yorug' va xodimlar xushmuomala."),
+        ("admin@quietspace.uz", 4, "Juda yaxshi, faqat dam olish kunlari gavjum bo'ladi."),
+    ],
+    "WorkHub": [
+        ("test@test.uz", 5, "Professional coworking, internet juda tez. Meeting xonasi ham bor."),
+        ("owner@quietspace.uz", 4, "Qulay, lekin narx biroz balandroq. Qahva a'lo."),
+        ("admin@quietspace.uz", 4, "24/7 kirish imkoniyati katta plyus. Stollar keng."),
+    ],
+    "Library Zone": [
+        ("test@test.uz", 5, "Bepul va mutlaqo tinch! Talabalar uchun ideal."),
+        ("owner@quietspace.uz", 4, "Tinch, ammo rozetkalar kam. Erta kelsangiz yaxshi joy olasiz."),
+        ("admin@quietspace.uz", 5, "O'qish uchun eng yaxshi joy. Wi-Fi biroz sekinroq."),
+    ],
+    "Green Coworking": [
+        ("test@test.uz", 5, "Bog'ga qaragan terassa ajoyib! Internet barqaror, issiq muhit."),
+        ("owner@quietspace.uz", 4, "Keng va yorug'. Dam olish zonasi ham bor."),
+        ("admin@quietspace.uz", 5, "Toshkentdagi eng shinam coworkinglardan biri."),
+    ],
+}
+
 
 def make_placeholder_image(color, text):
     img = Image.new("RGB", (800, 500), color)
@@ -142,11 +180,11 @@ def make_placeholder_image(color, text):
     return ContentFile(buf.getvalue(), name=f"{text.replace(' ', '_').lower()}.png")
 
 
-COLORS = ["#2E7D64", "#3A7CA5", "#5C6BC0", "#8D6E63", "#455A64", "#7B6C1E"]
+COLORS = ["#2E7D64", "#3A7CA5", "#5C6BC0", "#8D6E63", "#455A64", "#7B6C1E", "#4E6E58", "#6B4E71"]
 
 
 class Command(BaseCommand):
-    help = "Development uchun namunaviy joylar yaratadi (APPROVED)."
+    help = "Development uchun namunaviy joylar yaratadi/yangilaydi (APPROVED)."
 
     def handle(self, *args, **options):
         owner, created = User.objects.get_or_create(
@@ -157,31 +195,59 @@ class Command(BaseCommand):
             owner.set_password("ownerpass123")
             owner.save()
 
+        # Eski nom (WorkHub Tashkent) -> WorkHub (o'chirilmaydi, nom yangilanadi)
+        Place.objects.filter(name="WorkHub Tashkent").update(name="WorkHub")
+
         count = 0
         for idx, data in enumerate(SEED_PLACES):
             district = District.objects.get(name=data["district"])
-            place, created = Place.objects.get_or_create(
+            defaults = {
+                "district": district,
+                "address": data["address"],
+                "latitude": data["lat"],
+                "longitude": data["lon"],
+                "price_per_hour": data["price"],
+                "wifi_speed": data["wifi"],
+                "socket_count": data["sockets"],
+                "noise_level": data["noise"],
+                "capacity": data["capacity"],
+                "available_slots": data["slots"],
+                "description": data["description"],
+                "status": PlaceStatus.APPROVED,
+                "is_featured": data["featured"],
+                "owner": owner,
+            }
+            if data.get("open_time"):
+                defaults["open_time"] = data["open_time"]
+            if data.get("close_time"):
+                defaults["close_time"] = data["close_time"]
+
+            place, created = Place.objects.update_or_create(
                 name=data["name"],
-                defaults={
-                    "district": district,
-                    "address": data["address"],
-                    "latitude": data["lat"],
-                    "longitude": data["lon"],
-                    "price_per_hour": data["price"],
-                    "wifi_speed": data["wifi"],
-                    "socket_count": data["sockets"],
-                    "noise_level": data["noise"],
-                    "capacity": data["capacity"],
-                    "available_slots": data["slots"],
-                    "description": data["description"],
-                    "status": PlaceStatus.APPROVED,
-                    "is_featured": data["featured"],
-                    "owner": owner,
-                },
+                defaults=defaults,
             )
-            if created:
+            if not place.images.exists():
                 image = make_placeholder_image(COLORS[idx % len(COLORS)], place.name)
                 PlaceImage.objects.create(place=place, image=image, is_primary=True)
+            if created:
                 count += 1
 
-        self.stdout.write(self.style.SUCCESS(f"{count} ta namunaviy joy yaratildi."))
+        # Demo sharhlar (reyting) - idempotent
+        review_count = 0
+        for name, reviews in DEMO_REVIEWS.items():
+            place = Place.objects.filter(name=name).first()
+            if not place:
+                continue
+            for email, rating, text in reviews:
+                user = User.objects.filter(email=email).first()
+                if not user:
+                    continue
+                review, r_created = Review.objects.get_or_create(
+                    user=user, place=place, defaults={"rating": rating, "text": text}
+                )
+                if r_created:
+                    review_count += 1
+
+        self.stdout.write(
+            self.style.SUCCESS(f"{count} ta yangi joy, {review_count} ta sharh qo'shildi.")
+        )

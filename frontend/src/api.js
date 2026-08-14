@@ -36,6 +36,13 @@ api.interceptors.response.use(
 export function errorMessage(err) {
   if (err.response?.data?.message) return err.response.data.message;
   if (err.response?.data?.detail) return err.response.data.detail;
+  const data = err.response?.data;
+  if (data && typeof data === "object") {
+    const firstError = Object.values(data).find((v) => typeof v === "string");
+    if (firstError) return firstError;
+    const firstList = Object.values(data).find((v) => Array.isArray(v) && v.length > 0);
+    if (firstList) return Array.isArray(firstList[0]) ? firstList[0][0] : firstList[0];
+  }
   if (err.response?.status === 500) return "Serverda xatolik yuz berdi. Keyinroq urinib ko'ring.";
   if (!err.response) return "Serverga ulanib bo'lmadi. Backend ishlayotganini tekshiring.";
   return "Xatolik yuz berdi.";
